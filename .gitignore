@@ -195,3 +195,7 @@ PLAN.md
 *sublime*
 # PT backup directory
 .pt/
+
+# Added entries (2 items)
+tmp*
+src/tmp*

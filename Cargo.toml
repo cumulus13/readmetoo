@@ -1,6 +1,6 @@
 [package]
 name = "readmetoo"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Hadi Cahyadi <cumulus13@gmail.com>"]
 description = "Read markdown files with beautiful themes, syntax highlighting, and pager support"
@@ -25,10 +25,12 @@ pulldown-cmark = "=0.9.6"
 
 # Terminal rendering & colors
 crossterm = "=0.26.1"
-colored = "=2.0.4"
+colored = "=2.1.0"
 
 # CLI argument parsing
-clap = { version = "=4.1.14", features = ["derive", "color", "env"] }
+clap = { version = "4", features = ["derive", "color", "env"] }
+
+clap-version-flag = "1.0.7"
 
 # Config loading via config-get
 config-get = "=0.1.7"
