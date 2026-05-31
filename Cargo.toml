@@ -1,0 +1,57 @@
+[package]
+name = "readmetoo"
+version = "0.1.0"
+edition = "2021"
+authors = ["Hadi Cahyadi <cumulus13@gmail.com>"]
+description = "Read markdown files with beautiful themes, syntax highlighting, and pager support"
+homepage = "https://github.com/cumulus13/readmetoo"
+repository = "https://github.com/cumulus13/readmetoo"
+license = "MIT"
+readme = "README.md"
+keywords = ["markdown", "reader", "themes", "cli", "pager"]
+categories = ["command-line-utilities", "text-processing"]
+
+[[bin]]
+name = "readmetoo"
+path = "src/main.rs"
+
+[[bin]]
+name = "readme"
+path = "src/main.rs"
+
+[dependencies]
+# Markdown parsing
+pulldown-cmark = "=0.9.6"
+
+# Terminal rendering & colors
+crossterm = "=0.26.1"
+colored = "=2.0.4"
+
+# CLI argument parsing
+clap = { version = "=4.1.14", features = ["derive", "color", "env"] }
+
+# Config loading via config-get
+config-get = "=0.1.7"
+
+# Pager
+minus = { version = "=5.1.0", features = ["static_output"] }
+
+# Serialization
+serde = { version = "=1.0.190", features = ["derive"] }
+toml = "=0.5.11"
+
+# Errors
+thiserror = "=1.0.50"
+anyhow = "=1.0.75"
+
+# Path utilities
+dirs = "=5.0.1"
+
+# Terminal size
+terminal_size = "=0.2.6"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

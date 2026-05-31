@@ -1,0 +1,215 @@
+name: Release & Publish
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  BINARY_NAME: readmetoo
+
+permissions:
+  contents: write
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Build release binaries for all platforms
+  # ─────────────────────────────────────────────────────────────────────────
+  build-release:
+    name: Build release – ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x86_64 (musl for maximum portability)
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            archive_ext: tar.gz
+            install_cross: true
+          # Linux aarch64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            archive_ext: tar.gz
+            install_cross: true
+          # macOS x86_64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            archive_ext: tar.gz
+            install_cross: false
+          # macOS Apple Silicon
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive_ext: tar.gz
+            install_cross: false
+          # Windows x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive_ext: zip
+            install_cross: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get tag version
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.install_cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: release-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build (cross)
+        if: matrix.install_cross
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Build (cargo)
+        if: "!matrix.install_cross"
+        run: cargo build --release --target ${{ matrix.target }}
+
+      # ── Package ──────────────────────────────────────────────────────────
+      - name: Package (Unix)
+        if: matrix.archive_ext == 'tar.gz'
+        shell: bash
+        run: |
+          RELEASE_DIR="${{ env.BINARY_NAME }}-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}"
+          mkdir -p "$RELEASE_DIR"
+          cp "target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}" "$RELEASE_DIR/"
+          cp README.md LICENSE "$RELEASE_DIR/" 2>/dev/null || true
+          tar -czf "${RELEASE_DIR}.tar.gz" "$RELEASE_DIR"
+          echo "ASSET=${RELEASE_DIR}.tar.gz" >> $GITHUB_ENV
+
+      - name: Package (Windows)
+        if: matrix.archive_ext == 'zip'
+        shell: pwsh
+        run: |
+          $RELEASE_DIR = "${{ env.BINARY_NAME }}-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}"
+          New-Item -ItemType Directory -Force -Path $RELEASE_DIR
+          Copy-Item "target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}.exe" "$RELEASE_DIR/"
+          if (Test-Path README.md)  { Copy-Item README.md  "$RELEASE_DIR/" }
+          if (Test-Path LICENSE)    { Copy-Item LICENSE    "$RELEASE_DIR/" }
+          Compress-Archive -Path "$RELEASE_DIR" -DestinationPath "${RELEASE_DIR}.zip"
+          "ASSET=${RELEASE_DIR}.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: ${{ env.ASSET }}
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Create GitHub Release and attach all assets
+  # ─────────────────────────────────────────────────────────────────────────
+  github-release:
+    name: Create GitHub Release
+    needs: build-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: release-*
+          merge-multiple: true
+
+      - name: List assets
+        run: ls -lh release-assets/
+
+      - name: Generate release notes
+        id: notes
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          cat > notes.md << EOF
+          ## readmetoo ${TAG}
+
+          Beautiful Markdown reader for your terminal with Pygments-inspired themes.
+
+          ### Installation
+
+          #### Linux (x86_64)
+          \`\`\`bash
+          tar xzf readmetoo-${TAG}-x86_64-unknown-linux-musl.tar.gz
+          sudo install -m755 readmetoo-${TAG}-x86_64-unknown-linux-musl/readmetoo /usr/local/bin/
+          \`\`\`
+
+          #### macOS (Apple Silicon)
+          \`\`\`bash
+          tar xzf readmetoo-${TAG}-aarch64-apple-darwin.tar.gz
+          sudo install -m755 readmetoo-${TAG}-aarch64-apple-darwin/readmetoo /usr/local/bin/
+          \`\`\`
+
+          #### Via cargo
+          \`\`\`bash
+          cargo install readmetoo
+          \`\`\`
+
+          ### What's new
+          See [CHANGELOG.md](https://github.com/cumulus13/readmetoo/blob/main/CHANGELOG.md) for details.
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "readmetoo ${{ github.ref_name }}"
+          body_path: notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: release-assets/**
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Publish to crates.io
+  # ─────────────────────────────────────────────────────────────────────────
+  publish-crates:
+    name: Publish to crates.io
+    needs: github-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: publish-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Verify package
+        run: cargo package --no-verify
+
+      - name: Publish to crates.io
+        run: cargo publish --no-verify
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
