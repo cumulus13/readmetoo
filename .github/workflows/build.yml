@@ -49,10 +49,18 @@ jobs:
             ${{ runner.os }}-cargo-${{ matrix.rust }}-
             ${{ runner.os }}-cargo-
 
+      - name: Formatting
+        run: cargo fmt --all
+        if: matrix.rust == 'stable'
+
       - name: Check formatting
         run: cargo fmt --all -- --check
         if: matrix.rust == 'stable'
 
+      - name: Clippy Fix all
+        run: cargo clippy --fix --all-features --allow-dirty
+        if: matrix.rust == 'stable'
+      
       - name: Lint with clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
         if: matrix.rust == 'stable'

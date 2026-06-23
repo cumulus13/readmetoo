@@ -1,9 +1,7 @@
 use crate::theme::Theme;
 use anyhow::Result;
-use crossterm::style::{Attribute, SetAttribute, SetForegroundColor, ResetColor};
-use pulldown_cmark::{
-    Event, HeadingLevel, Options, Parser, Tag, CodeBlockKind,
-};
+use crossterm::style::{Attribute, ResetColor, SetAttribute, SetForegroundColor};
+use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag};
 use std::io::Write;
 use terminal_size::{terminal_size, Width};
 
@@ -16,7 +14,9 @@ fn visible_len(s: &str) -> usize {
     let mut in_esc = false;
     for c in s.chars() {
         if in_esc {
-            if c == 'm' { in_esc = false; }
+            if c == 'm' {
+                in_esc = false;
+            }
         } else if c == '\x1b' {
             in_esc = true;
         } else {
@@ -199,7 +199,7 @@ impl<W: Write> Renderer<W> {
             HeadingLevel::H1 => ("█ ", self.theme.colors.h1.clone()),
             HeadingLevel::H2 => ("▌ ", self.theme.colors.h2.clone()),
             HeadingLevel::H3 => ("◆ ", self.theme.colors.h3.clone()),
-            _ =>               ("◇ ", self.theme.colors.h4.clone()),
+            _ => ("◇ ", self.theme.colors.h4.clone()),
         };
         self.attr(Attribute::Bold)?;
         self.fg(&color)?;
@@ -208,9 +208,13 @@ impl<W: Write> Renderer<W> {
         self.reset_color()?;
         self.newline()?;
         if matches!(level, HeadingLevel::H1 | HeadingLevel::H2) {
-            let width = (prefix.chars().count() + text.chars().count())
-                .min(self.term_width as usize);
-            let under = if matches!(level, HeadingLevel::H1) { "═" } else { "─" };
+            let width =
+                (prefix.chars().count() + text.chars().count()).min(self.term_width as usize);
+            let under = if matches!(level, HeadingLevel::H1) {
+                "═"
+            } else {
+                "─"
+            };
             self.fg(&color)?;
             writeln!(self.out, "{}", under.repeat(width))?;
             self.reset_color()?;
@@ -238,7 +242,9 @@ impl<W: Write> Renderer<W> {
         // Since we mixed ANSI into para_buf already, we do a simpler approach:
         // split on space/newline boundaries in the raw string (ANSI codes never
         // contain spaces), then wrap by visible width.
-        let avail = (self.term_width as usize).saturating_sub(indent_str.len()).max(20);
+        let avail = (self.term_width as usize)
+            .saturating_sub(indent_str.len())
+            .max(20);
 
         if self.word_wrap {
             // Split into tokens (words + their trailing ANSI) at whitespace
@@ -253,7 +259,9 @@ impl<W: Write> Renderer<W> {
             for ch in text.chars() {
                 if in_esc {
                     tok.push(ch);
-                    if ch == 'm' { in_esc = false; }
+                    if ch == 'm' {
+                        in_esc = false;
+                    }
                 } else if ch == '\x1b' {
                     in_esc = true;
                     tok.push(ch);
@@ -266,7 +274,9 @@ impl<W: Write> Renderer<W> {
                     tok.push(ch);
                 }
             }
-            if !tok.is_empty() { tokens.push(tok); }
+            if !tok.is_empty() {
+                tokens.push(tok);
+            }
 
             for word in &tokens {
                 let wlen = visible_len(word);
@@ -333,18 +343,17 @@ impl<W: Write> Renderer<W> {
         self.reset_color()?;
 
         let comment_marker: &str = match lang {
-            Some("python") | Some("py") | Some("ruby") | Some("rb") |
-            Some("shell") | Some("bash") | Some("sh") | Some("zsh") |
-            Some("toml") | Some("yaml") | Some("yml") | Some("bat") |
-            Some("powershell") | Some("ps1") => "#",
+            Some("python") | Some("py") | Some("ruby") | Some("rb") | Some("shell")
+            | Some("bash") | Some("sh") | Some("zsh") | Some("toml") | Some("yaml")
+            | Some("yml") | Some("bat") | Some("powershell") | Some("ps1") => "#",
             Some("sql") | Some("lua") | Some("haskell") | Some("hs") => "--",
-            _ => "//",  // rust, c, cpp, java, go, js, ts, swift …
+            _ => "//", // rust, c, cpp, java, go, js, ts, swift …
         };
 
         // code lines — we need to pad to exactly `inner - line_num_width` chars
         let ln_width = if self.line_numbers {
             let total = code.lines().count();
-            format!("{}", total).len() + 1  // e.g. "42 " = 3 chars
+            format!("{}", total).len() + 1 // e.g. "42 " = 3 chars
         } else {
             0
         };
@@ -364,8 +373,7 @@ impl<W: Write> Renderer<W> {
             // colorize
             let trimmed = line.trim_start();
             let is_comment = trimmed.starts_with(comment_marker)
-                || (lang == Some("html") || lang == Some("xml"))
-                   && trimmed.starts_with("<!--");
+                || (lang == Some("html") || lang == Some("xml")) && trimmed.starts_with("<!--");
             if is_comment {
                 self.fg(&cmt_color)?;
                 self.attr(Attribute::Italic)?;
@@ -402,7 +410,9 @@ impl<W: Write> Renderer<W> {
             for (ci, cell) in row.plain.iter().enumerate() {
                 let w = cell.chars().count();
                 if ci < widths.len() {
-                    if w > widths[ci] { widths[ci] = w; }
+                    if w > widths[ci] {
+                        widths[ci] = w;
+                    }
                 } else {
                     widths.push(w.max(1));
                 }
@@ -429,7 +439,9 @@ impl<W: Write> Renderer<W> {
         write!(self.out, "┌")?;
         for (i, &w) in widths.iter().enumerate() {
             write!(self.out, "{}", "─".repeat(w + 2))?;
-            if i + 1 < cols { write!(self.out, "┬")?; }
+            if i + 1 < cols {
+                write!(self.out, "┬")?;
+            }
         }
         writeln!(self.out, "┐")?;
 
@@ -443,7 +455,9 @@ impl<W: Write> Renderer<W> {
                 write!(self.out, "├")?;
                 for (i, &w) in widths.iter().enumerate() {
                     write!(self.out, "{}", "═".repeat(w + 2))?;
-                    if i + 1 < cols { write!(self.out, "╪")?; }
+                    if i + 1 < cols {
+                        write!(self.out, "╪")?;
+                    }
                 }
                 writeln!(self.out, "┤")?;
             }
@@ -481,7 +495,9 @@ impl<W: Write> Renderer<W> {
         write!(self.out, "└")?;
         for (i, &w) in widths.iter().enumerate() {
             write!(self.out, "{}", "─".repeat(w + 2))?;
-            if i + 1 < cols { write!(self.out, "┴")?; }
+            if i + 1 < cols {
+                write!(self.out, "┴")?;
+            }
         }
         writeln!(self.out, "┘")?;
         self.reset_color()?;
@@ -544,7 +560,6 @@ impl<W: Write> Renderer<W> {
 
         for event in events {
             match event {
-
                 // ── Headings ──────────────────────────────────────────────────
                 Event::Start(Tag::Heading(level, _, _)) => {
                     self.flush_para()?;
@@ -665,9 +680,7 @@ impl<W: Write> Renderer<W> {
                     self.flush_para()?;
                     self.code_buf = Some(String::new());
                     self.code_lang = match kind {
-                        CodeBlockKind::Fenced(lang) if !lang.is_empty() => {
-                            Some(lang.to_string())
-                        }
+                        CodeBlockKind::Fenced(lang) if !lang.is_empty() => Some(lang.to_string()),
                         _ => None,
                     };
                 }
@@ -822,7 +835,7 @@ impl<W: Write> Renderer<W> {
                 }
                 Event::End(Tag::TableRow) => {
                     let plain = std::mem::take(&mut self.cur_row_plain);
-                    let rich  = std::mem::take(&mut self.cur_row_rich);
+                    let rich = std::mem::take(&mut self.cur_row_rich);
                     self.table_rows.push(TableRow {
                         plain,
                         rich,
@@ -839,7 +852,7 @@ impl<W: Write> Renderer<W> {
                     // reset colors at end of cell
                     self.cur_cell_rich.push_str(&Self::reset_str());
                     let plain = std::mem::take(&mut self.cur_cell_plain);
-                    let rich  = std::mem::take(&mut self.cur_cell_rich);
+                    let rich = std::mem::take(&mut self.cur_cell_rich);
                     self.cur_row_plain.push(plain);
                     self.cur_row_rich.push(rich);
                 }

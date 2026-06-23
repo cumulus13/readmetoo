@@ -1,6 +1,6 @@
 [package]
 name = "readmetoo"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Hadi Cahyadi <cumulus13@gmail.com>"]
 description = "Read markdown files with beautiful themes, syntax highlighting, and pager support"
